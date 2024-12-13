@@ -8,44 +8,102 @@ import numpy as np
 
 
 time_step = 10
-num_individuals = 10
-a = 0.2
-alpha = 3.0
-beta = 2
+num_individuals = 10# 个体数
+a = 0.2#激活概率(改为activities)
+alpha = 0.05
+beta = 2.0
+gamma = 2.1
 
+def activity_get():
+    # 生成活动性 a_i，分布满足 a^(-gamma)
+    a_min = 0.01  # 避免 a = 0
+    a_max = 1.0
+    r = np.random.uniform(0, 1, size=num_individuals)
+    a_values = a_min * (1 - r) ** (1 / (1 - gamma))
+    return a_values
 
-def homophily_get(opinions, selected_agent):# 计算同质性
-        # 计算分母denominator
-        denominator = numerator = 0
-        values = []
-        for item in range(num_individuals):
-            if item != selected_agent:
-                denominator += abs(opinions[selected_agent] - opinions[item]) ** (-beta)
+# def homophily_get(opinions, selected_agent):# 计算同质性
+#         # 计算分母denominator
+#         denominator = numerator = 0
+#         values = []
+#         for item in range(num_individuals):
+#             if opinions[selected_agent] - opinions[item] == 0:
+#                 print("意见相同")
+#                 if item != selected_agent:
+#                     print("不是自己：赋1")
+#                 else:
+#                     print("是自己：赋0")
+#             if item != selected_agent:
+#                 denominator += abs(opinions[selected_agent] - opinions[item]) ** (-beta)
 
-        # 计算分子numerator
-        for item in range(num_individuals): 
-            # print(f"长度{len(values)}")
-            if item != selected_agent:
-                values.append(abs(opinions[selected_agent] - opinions[item]) ** (-beta) / denominator)
-            else:
-                values.append(1)
-        return values
+#         # 计算分子numerator
+#         for item in range(num_individuals): 
+#             # print(f"长度{len(values)}")
+#             if item != selected_agent:
+#                 values.append(abs(opinions[selected_agent] - opinions[item]) ** (-beta) / denominator)
+#             else:
+#                 values.append(0)
+#         return values
 
+def homophily_get(opinions, node_index):# 新。计算同质性
+    """
+    计算给定节点与其他节点之间的同质性.
+    
+    :param opinions: 一个数组，表示所有节点的意见（x_i）
+    :param beta: 指数参数（β）
+    :param node_index: 指定的节点索引
+    :return: 同质性数组 p_ij
+    """
+    probabilities = np.zeros(num_individuals)  # 初始化概率数组
+    
+    # 计算分母
+    denominator = 0
+    for j in range(num_individuals):
+        if node_index != j:
+            denominator += abs(opinions[node_index] - opinions[j]) ** -beta
+    
+    # 计算每个节点的概率
+    for j in range(num_individuals):
+        if node_index != j:
+            numerator = abs(opinions[node_index] - opinions[j]) ** -beta
+            probabilities[j] = numerator / (denominator + 1e-10)  # 避免分母为0
+    
+    return probabilities
 
 if __name__ == '__main__':
     opinions = np.zeros((num_individuals, time_step))
     # 初始化0时刻意见
     opinions[:, 0] = np.random.uniform(-1, 1, size=num_individuals)
+    print(F"初始意见{opinions[:, 0]}")
 
 
 
+    for tick in range(1, time_step):
 
-    for tick in range(time_step):
+        if tick > 1:# 测试
+            break
+
         # 激活节点
+        print(f"当前tick{tick}")
         for item in range(num_individuals):
+            print(f"当前节点{item}")
             if random.uniform(0, 1) <= a:
                 #激活当前节点，当前节点选择节点进行连接(根据同质性)
+                print(f"当前节点{item}活跃")
                 #获取同质性
-                print("哈哈")
-                homobility = homophily_get(opinions[:, 0], item)
+                homobility = homophily_get(opinions[:, tick - 1], item)
+                #根据同质性选择连接的节点(选择m=10个同质性最高的节点)
+                top_10_indices = np.argsort(homobility)[-10:]# 索引
+                top_10_values = homobility[top_10_indices]# 值
+                selected_agents = []
+                #尝试连接这m个节点
+                for value in top_10_indices:
+                    if random.uniform(0, 1) <= homobility[value]:
+                        selected_agents.append(value)
+                print(f"尝试连接的节点：{top_10_indices}，同质性{top_10_values}，连接成功的节点：{selected_agents}")
+                # 将节点用超边连接
+
+        
+                
+
                 
