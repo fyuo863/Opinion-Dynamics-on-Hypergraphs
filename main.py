@@ -8,13 +8,46 @@ import numpy as np
 
 
 time_step = 10
-num_individuals = 10# 个体数
-a = 0.2#激活概率(改为activities)
+num_individuals = 1000# 个体数
+a = 0.2# 激活概率(改为activities)
 alpha = 0.05
 beta = 2.0
 gamma = 2.1
+m = 10# 尝试连接的节点数
 
-def activity_get():
+class Hypergraph:
+    def __init__(self):
+        self.hyperedges = []  # 用于存储超边，每个超边是一个集合
+
+    def add_hyperedge(self, nodes):
+        """
+        添加一条超边
+        :param nodes: 一个包含多个节点的列表或集合
+        """
+        self.hyperedges.append(set(nodes))
+
+    def del_some_hyperedges(self, index):
+        """
+        删除指定超边
+        示例[1,2]
+        """
+        self.hyperedges = [s for i, s in enumerate(self.hyperedges) if i not in index]
+
+    
+    def del_all_hyperedges(self):
+        """
+        删除所有超边
+        """
+        self.hyperedges = []
+
+    def display_hyperedges(self):
+        """
+        打印所有超边
+        """
+        for i, edge in enumerate(self.hyperedges):
+            print(f"Hyperedge {i + 1}: {edge}")
+
+def activity_get():# 待完善
     # 生成活动性 a_i，分布满足 a^(-gamma)
     a_min = 0.01  # 避免 a = 0
     a_max = 1.0
@@ -45,16 +78,16 @@ def activity_get():
 #                 values.append(0)
 #         return values
 
-def homophily_get(opinions, node_index):# 新。计算同质性
+def homophily_get(opinions, node_index):# 计算同质性
     """
     计算给定节点与其他节点之间的同质性.
     
-    :param opinions: 一个数组，表示所有节点的意见（x_i）
+    :param opinions: 一个数组,表示所有节点的意见(x_i)
     :param beta: 指数参数（β）
     :param node_index: 指定的节点索引
     :return: 同质性数组 p_ij
     """
-    probabilities = np.zeros(num_individuals)  # 初始化概率数组
+    probabilities = np.zeros(num_individuals)  # 初始化同质性数组
     
     # 计算分母
     denominator = 0
@@ -62,7 +95,7 @@ def homophily_get(opinions, node_index):# 新。计算同质性
         if node_index != j:
             denominator += abs(opinions[node_index] - opinions[j]) ** -beta
     
-    # 计算每个节点的概率
+    # 计算每个节点的同质性
     for j in range(num_individuals):
         if node_index != j:
             numerator = abs(opinions[node_index] - opinions[j]) ** -beta
@@ -71,6 +104,7 @@ def homophily_get(opinions, node_index):# 新。计算同质性
     return probabilities
 
 if __name__ == '__main__':
+    hypergraph = Hypergraph()# 实例化
     opinions = np.zeros((num_individuals, time_step))
     # 初始化0时刻意见
     opinions[:, 0] = np.random.uniform(-1, 1, size=num_individuals)
@@ -87,21 +121,33 @@ if __name__ == '__main__':
         print(f"当前tick{tick}")
         for item in range(num_individuals):
             print(f"当前节点{item}")
-            if random.uniform(0, 1) <= a:
+            if random.uniform(0, 1) <= a:# a待替换
                 #激活当前节点，当前节点选择节点进行连接(根据同质性)
                 print(f"当前节点{item}活跃")
                 #获取同质性
                 homobility = homophily_get(opinions[:, tick - 1], item)
                 #根据同质性选择连接的节点(选择m=10个同质性最高的节点)
-                top_10_indices = np.argsort(homobility)[-10:]# 索引
+                top_10_indices = np.argsort(homobility)[-m:].tolist()# 索引
                 top_10_values = homobility[top_10_indices]# 值
                 selected_agents = []
+                print(f"top_10_indices{top_10_indices}")
                 #尝试连接这m个节点
                 for value in top_10_indices:
                     if random.uniform(0, 1) <= homobility[value]:
                         selected_agents.append(value)
                 print(f"尝试连接的节点：{top_10_indices}，同质性{top_10_values}，连接成功的节点：{selected_agents}")
                 # 将节点用超边连接
+                if selected_agents != []:
+                    temp = selected_agents
+                    temp.append(item)
+                    hypergraph.add_hyperedge(temp)
+                # print(f"selected_agents3:{selected_agents},temp:{temp},item:{item}")
+        # 打印超边
+        print("打印")
+        hypergraph.display_hyperedges()
+        # 意见传播
+        print("占位符")
+                
 
         
                 
