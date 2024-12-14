@@ -125,23 +125,43 @@ if __name__ == '__main__':
                 #激活当前节点，当前节点选择节点进行连接(根据同质性)
                 print(f"当前节点{item}活跃")
                 #获取同质性
-                homobility = homophily_get(opinions[:, tick - 1], item)
-                #根据同质性选择连接的节点(选择m=10个同质性最高的节点)
-                top_10_indices = np.argsort(homobility)[-m:].tolist()# 索引
-                top_10_values = homobility[top_10_indices]# 值
-                selected_agents = []
-                print(f"top_10_indices{top_10_indices}")
+                homogeneity = homophily_get(opinions[:, tick - 1], item)
+                #根据同质性选择连接的节点(1.直接选择同质性最高的m个节点进行连接。2.依据同质性随机选择m个节点进行连接)
+                #1.
+                # m_agents = np.argsort(homogeneity)[-m:].tolist()# 索引
+                # m_values = homogeneity[m_agents]# 值
+                # print(f"准备连接的节点{m_agents}")
+                # #尝试连接这m个节点
+                # selected_agents = []
+                # for value in m_agents:
+                #     if random.uniform(0, 1) <= homogeneity[value]:
+                #         selected_agents.append(value)
+                # print(f"尝试连接的节点：{m_agents}，同质性{m_values}，连接成功的节点：{selected_agents}")
+                #2.
+                m_agents = []
+                m_values = []
+                for i in range(m):# 重复选择直至m
+                    while 1:
+                        rand_flo = random.uniform(0, 1)
+                        rand_int = random.randint(0, num_individuals-1)
+                        if rand_flo <= homogeneity[rand_int]:
+                            m_agents.append(int(rand_int))
+                            m_values.append(homogeneity[int(rand_int)])
+                            break
+                print(f"准备连接的节点{m_agents}")
                 #尝试连接这m个节点
-                for value in top_10_indices:
-                    if random.uniform(0, 1) <= homobility[value]:
+                selected_agents = []
+                for value in m_agents:
+                    if random.uniform(0, 1) <= homogeneity[value]:
                         selected_agents.append(value)
-                print(f"尝试连接的节点：{top_10_indices}，同质性{top_10_values}，连接成功的节点：{selected_agents}")
+                print(f"尝试连接的节点：{m_agents}，同质性{m_values}，连接成功的节点：{set(selected_agents)}")
                 # 将节点用超边连接
                 if selected_agents != []:
-                    temp = selected_agents
+                    temp = list(set(selected_agents))
+                    print(f"temp{temp},item{item}")
                     temp.append(item)
                     hypergraph.add_hyperedge(temp)
-                # print(f"selected_agents3:{selected_agents},temp:{temp},item:{item}")
+                print(f"selected_agents3:{selected_agents},temp:{temp},item:{item}")
         # 打印超边
         print("打印")
         hypergraph.display_hyperedges()
