@@ -47,12 +47,30 @@ class Hypergraph:
         for i, edge in enumerate(self.hyperedges):
             print(f"Hyperedge {i + 1}: {edge}")
 
+# def activity_get():# 待完善
+#     """
+#     获取节点的活动性
+#     """
+#     # 生成活动性 a_i，分布满足 a^(-gamma)
+#     a_min = 0.01  # 避免 a = 0
+#     a_max = 1.0
+#     rand_value = np.random.uniform(0, 1, size=num_individuals)
+#     x_values = np.exp(np.log(rand_value) / (2 * np.log2(10))) - 1
+#     a_values = x_values
+#     print(f"rand_value{rand_value}")
+#     return a_values
+
 def activity_get():# 待完善
+    """
+    获取节点的活动性
+    """
     # 生成活动性 a_i，分布满足 a^(-gamma)
     a_min = 0.01  # 避免 a = 0
     a_max = 1.0
-    r = np.random.uniform(0, 1, size=num_individuals)
-    a_values = a_min * (1 - r) ** (1 / (1 - gamma))
+    rand_value = np.random.uniform(0, 1, size=num_individuals)
+    x_values = rand_value ** (- 1 / gamma) - 1
+    a_values = x_values
+    print(f"rand_value{rand_value}")
     return a_values
 
 # def homophily_get(opinions, selected_agent):# 计算同质性
@@ -68,7 +86,6 @@ def activity_get():# 待完善
 #                     print("是自己：赋0")
 #             if item != selected_agent:
 #                 denominator += abs(opinions[selected_agent] - opinions[item]) ** (-beta)
-
 #         # 计算分子numerator
 #         for item in range(num_individuals): 
 #             # print(f"长度{len(values)}")
@@ -167,6 +184,13 @@ if __name__ == '__main__':
         hypergraph.display_hyperedges()
         # 意见传播
         print("占位符")
+        for item in hypergraph.hyperedges:
+            print(item)
+        
+
+    # test = activity_get()
+    # print(f"{test}")
+    # print(f"最小值{min(test)}，最大值{max(test)}")
                 
 
         
