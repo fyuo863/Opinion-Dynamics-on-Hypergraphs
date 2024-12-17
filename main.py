@@ -10,6 +10,7 @@ import numpy as np
 time_step = 10
 num_individuals = 1000# 个体数
 a = 0.2# 激活概率(改为activities)
+a_list = []
 alpha = 0.05
 beta = 2.0
 gamma = 2.1
@@ -47,53 +48,41 @@ class Hypergraph:
         for i, edge in enumerate(self.hyperedges):
             print(f"Hyperedge {i + 1}: {edge}")
 
-# def activity_get():# 待完善
-#     """
-#     获取节点的活动性
-#     """
-#     # 生成活动性 a_i，分布满足 a^(-gamma)
-#     a_min = 0.01  # 避免 a = 0
-#     a_max = 1.0
-#     rand_value = np.random.uniform(0, 1, size=num_individuals)
-#     x_values = np.exp(np.log(rand_value) / (2 * np.log2(10))) - 1
-#     a_values = x_values
-#     print(f"rand_value{rand_value}")
-#     return a_values
+class Baumann:#鲍曼模型(暂定)
+    def __init__(self, hyperedges, opinions):
+        self.time_step = 10#鲍曼模型时间步
+        self.hyperedges = hyperedges  # 用于存储超边，每个超边是一个集合
+        self.activity = random.uniform(0, 1, size = len(self.hyperedges))# 获取组内活跃性
+        
 
-def activity_get():# 待完善
+    def solve(self):
+        print("占位")
+        self.opinions = np.zeros((len(hypergraph), self.time_step))
+        self.opinions[:, 0] = opinions
+        for tick in range(1, self.time_step):
+            # 遍历所有智能体
+            matrix_A = np.zeros((len(self.hyperedges), len(self.hyperedges)))
+            for item in self.hyperedges:
+                if random.uniform(0, 1) <= self.activity[self.hyperedges.index[item]]:
+                    print("活跃")
+                    self.homogeneity = homophily_get(opinions[:, tick - 1], item)
+                    #尝试连接节点
+                    
+
+
+
+def activity_get(size):# 待完善
     """
     获取节点的活动性
     """
     # 生成活动性 a_i，分布满足 a^(-gamma)
-    a_min = 0.01  # 避免 a = 0
-    a_max = 1.0
-    rand_value = np.random.uniform(0, 1, size=num_individuals)
-    x_values = rand_value ** (- 1 / gamma) - 1
-    a_values = x_values
-    print(f"rand_value{rand_value}")
-    return a_values
+    low = 0.01    # 下界
+    high = 1.0    # 上界
 
-# def homophily_get(opinions, selected_agent):# 计算同质性
-#         # 计算分母denominator
-#         denominator = numerator = 0
-#         values = []
-#         for item in range(num_individuals):
-#             if opinions[selected_agent] - opinions[item] == 0:
-#                 print("意见相同")
-#                 if item != selected_agent:
-#                     print("不是自己：赋1")
-#                 else:
-#                     print("是自己：赋0")
-#             if item != selected_agent:
-#                 denominator += abs(opinions[selected_agent] - opinions[item]) ** (-beta)
-#         # 计算分子numerator
-#         for item in range(num_individuals): 
-#             # print(f"长度{len(values)}")
-#             if item != selected_agent:
-#                 values.append(abs(opinions[selected_agent] - opinions[item]) ** (-beta) / denominator)
-#             else:
-#                 values.append(0)
-#         return values
+    # 生成符合幂律分布的随机数
+    random_numbers = (np.random.uniform(low, high, size) ** (-1/(gamma - 1)))
+    a_values = 0.01 + (random_numbers - min(random_numbers)) * (1 - 0.01) / (max(random_numbers) - min(random_numbers))
+    return a_values
 
 def homophily_get(opinions, node_index):# 计算同质性
     """
@@ -138,7 +127,8 @@ if __name__ == '__main__':
         print(f"当前tick{tick}")
         for item in range(num_individuals):
             print(f"当前节点{item}")
-            if random.uniform(0, 1) <= a:# a待替换
+            a_list = activity_get(num_individuals)
+            if random.uniform(0, 1) <= a_list[item]:# a待替换
                 #激活当前节点，当前节点选择节点进行连接(根据同质性)
                 print(f"当前节点{item}活跃")
                 #获取同质性
@@ -185,6 +175,8 @@ if __name__ == '__main__':
         # 意见传播
         print("占位符")
         for item in hypergraph.hyperedges:
+            #使用鲍曼模型（计算组内活动性）
+
             print(item)
         
 
