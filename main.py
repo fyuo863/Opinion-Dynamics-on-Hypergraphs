@@ -50,34 +50,11 @@ class Hypergraph:
         """
         for i, edge in enumerate(self.hyperedges):
             print(f"Hyperedge {i + 1}: {edge}")
-
-# class Baumann:#鲍曼模型(暂定)
-#     def __init__(self, hyperedges, opinions):
-#         self.time_step = 10#鲍曼模型时间步
-#         self.hyperedges = hyperedges  # 用于存储超边，每个超边是一个集合
-#         self.activity = random.uniform(0, 1, size = len(self.hyperedges))# 获取组内活跃性
-        
-
-#     def solve(self):
-#         print("占位")
-#         self.opinions = np.zeros((len(hypergraph), self.time_step))
-#         self.opinions[:, 0] = opinions
-#         for tick in range(1, self.time_step):
-#             # 遍历所有智能体
-#             matrix_A = np.zeros((len(self.hyperedges), len(self.hyperedges)))
-#             for item in self.hyperedges:
-#                 if random.uniform(0, 1) <= self.activity[self.hyperedges.index[item]]:
-#                     print("活跃")
-#                     self.homogeneity = homophily_get(opinions[:, tick - 1], item)
-#                     #尝试连接节点
                     
 class Group:#小组交互模型(暂定)
     def __init__(self):
         self.time_step = 10#鲍曼模型时间步
-        
         # self.activity = random.uniform(0, 1, size = len(self.hyperedges))# 获取组内活跃性
-        
-
     def solve(self, hyperedges, opinions, activitise):
         print("🍌",hyperedges)
         self.hyperedges = hyperedges  # 用于存储超边，每个超边是一个集合
