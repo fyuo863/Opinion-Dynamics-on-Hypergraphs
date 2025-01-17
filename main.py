@@ -1,217 +1,194 @@
-# 每个节点被赋予活动性ai，ai由分布函数F(a)~a^(-gamma)获得
-# 在每个时间步，所有节点都有ai的概率被激活，激活时会创建一个(s-1)的单纯形(换成超边)
-# (暂定)超边连接的个体为一个小组，组间意见可能分为中立，激化和极化
-# 下一时间步，现有的完全子图被清空，重新开始过程
-
-import random
+import cupy as cp
 import numpy as np
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 import time
+import networkx as nx
+import os
+from src.module import tech
+from src.func import func
+import xgi
 
+# 设置中文字体
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 设置为黑体字体，SimHei 是常见的中文字体
+plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+# 图片保存位置
+save_folder = "/plots"
+if not os.path.exists(save_folder):
+    os.makedirs(save_folder)  # 如果文件夹不存在，则创建
 
-time_step = 10
-num_individuals = 1000# 个体数
-a = 0.2# 激活概率(改为activities)
-a_list = []
-alpha = 0.05
-beta = 2.0
-gamma = 2.1
-m = 10# 尝试连接的节点数
-r = 0.65# 反驳
-
-
-class Hypergraph:
+class model():
     def __init__(self):
-        self.hyperedges = []  # 用于存储超边，每个超边是一个集合
+        pass
+    
+    def data_in(self, **kwargs):
+        # 参数
+        self.N = kwargs.get("N")
+        self.T = kwargs.get("T")
+        self.dt = kwargs.get("dt")
+        self.alpha = kwargs.get("alpha")
+        self.beta = kwargs.get("beta")
+        self.K = kwargs.get("K")
+        self.gamma = kwargs.get("gamma")
+        self.epsilon = kwargs.get("epsilon")
+        self.m = kwargs.get("m")
+        self.r = kwargs.get("r")
 
-    def add_hyperedge(self, nodes):
-        """
-        添加一条超边
-        :param nodes: 一个包含多个节点的列表或集合
-        """
-        self.hyperedges.append(set(nodes))
+        self.activities = self.activities_get()
+        self.A = np.zeros((self.N, self.N))
 
-    def del_some_hyperedges(self, index):
-        """
-        删除指定超边
-        示例[1,2]
-        """
-        self.hyperedges = [s for i, s in enumerate(self.hyperedges) if i not in index]
+    def activities_get(self):
+        temp = np.random.uniform(0, 1, self.N)
+        return (self.epsilon ** (1 - self.gamma) + temp * (1 - self.epsilon ** (1 - self.gamma))) ** (1 / (1 - self.gamma))
+
+    def homogeneity_get(self, opinions, node):
+        p_matrix = np.zeros((self.N, self.N))  # 概率矩阵，表示代理人之间互动的概率
+
+        for i in range(self.N):
+            dif = np.abs(opinions[i] - opinions)  # 计算代理人 i 与其他代理人之间的意见距离
+            prob = (dif + 1e-10) ** (-self.beta)  # 根据意见距离计算互动概率
+            prob[i] = 0  # 自己与自己不互动
+            p_matrix[i, :] = prob / np.sum(prob)  # 归一化概率
+        return p_matrix
+    
+    def network_update(self, tick):
+        for i in range(self.N):# 遍历所有节点，确定是否激活
+            if np.random.rand() <= self.activities[i]:
+                # 激活
+                homogeneities = self.homogeneity_get(self.opinions[tick - 1], i)# 获取同质性
+                neighbors = np.random.choice(self.N, size=self.m, replace=False, p=homogeneities[i])  # 选择m个节点连接
+                # 连接
+                self.A[i, neighbors] = 1
+                # 互惠
+                for node in neighbors:
+                    if np.random.rand() < self.r:  # 以概率 r 设置反向关系
+                        self.A[node][i] = 1
+        # # 网络显示
+        cliques = tech.bron_kerbosch_pivot(self.A)
+        print(cliques)
+        self.network_print()
+        
+        self.simplex_print(cliques)
+
+    def network_print(self):
+        # 创建图对象
+        G = nx.from_numpy_array(self.A)
+        # 绘制网络图
+        plt.figure(figsize=(6, 6))
+        pos = nx.spring_layout(G)  # 布局算法
+        nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=5, font_size=8)
+        # 显示图形
+        plt.show()
+
+    def simplex_print(self, cliques):
+        H = xgi.Hypergraph()
+        H.add_edges_from(cliques)
+        # 使用 barycenter_spring_layout 布局算法计算节点位置，布局基于春力模型，seed用于固定布局结果
+        pos = xgi.barycenter_spring_layout(H, seed=1)
+
+        # 创建一个6x2.5英寸的图形和坐标轴
+        fig, ax = plt.subplots(figsize=(6, 2.5))
+
+        # 绘制超图H
+        ax, collections = xgi.draw(
+            H,  # 超图H
+            pos=pos,  # 节点的布局位置
+            node_fc=H.nodes.degree,  # 节点的颜色映射：节点度数（连接的超边数）
+            edge_fc=H.edges.size,  # 边的颜色映射：超边大小（连接的节点数）
+            edge_fc_cmap="viridis",  # 边的颜色映射使用viridis配色方案
+            node_fc_cmap="mako_r",  # 节点的颜色映射使用反转的Mako配色方案
+        )
+
+        # 从collections中提取节点颜色集合、边颜色集合（中间部分忽略）
+        node_col, _, edge_col = collections
+
+        # 为节点度数的颜色映射添加颜色条，并标注为"Node degree"
+        plt.colorbar(node_col, label="Node degree")
+
+        # 为超边大小的颜色映射添加颜色条，并标注为"Edge size"
+        plt.colorbar(edge_col, label="Edge size")
+
+        # 显示绘制的图形
+        plt.show()
+
+
+    def opinion_dynamics(self, x):# 意见动态微分方程
+        return -x + self.K * np.sum(self.A * np.tanh(self.alpha * x), axis=1)
+
+    def runge_kutta(self, opinions):
+        k1 = self.dt * self.opinion_dynamics(opinions)  # 计算 k1
+        k2 = self.dt * self.opinion_dynamics(opinions + 0.5 * k1)  # 计算 k2
+        k3 = self.dt * self.opinion_dynamics(opinions + 0.5 * k2)  # 计算 k3
+        k4 = self.dt * self.opinion_dynamics(opinions + k3)  # 计算 k4
+        return (k1 + 2 * k2 + 2 * k3 + k4) / 6  # 更新意见值
+
+
+    def simulate_opinion_dynamics(self):# 意见动态模型
+        self.x = np.random.uniform(-1, 1, self.N)# 初始化意见，范围为[-1, 1]
+        self.opinions = np.zeros((self.T, self.N))  # 存储每个时间步的意见
+        self.opinions[0] = self.x  # 初始意见
+        # 主循环
+        for tick in tqdm(range(1, self.T)):
+            self.A = np.zeros((self.N, self.N))  # 重置邻接矩阵
+            self.network_update(tick)# 网络连接
+            opinions_temp = self.runge_kutta(self.opinions[tick - 1])# 意见更新
+            #print(opinions_temp)
+            self.opinions[tick] = self.opinions[tick - 1] + opinions_temp  # 记录当前时间步的意见
+            
+
+    def draw(self):
+            plt.figure(figsize=(10, 6))
+            for i in range(self.N):
+                plt.plot(range(self.T), self.opinions[:, i], alpha=0.5)  # 绘制每个代理的意见随时间变化
+            plt.xlabel('时间')
+            plt.ylabel('意见')
+            plt.title(f'K={self.K},alpha={self.alpha},beta={self.beta}')
+            plt.show()
+    
+    def save(self):
+        global save_folder
+        # 保存图像
+        file_prefix = "Fig"  # 文件名前缀
+        file_extension = ".png"  # 文件扩展名
+        # 获取文件夹中已存在的文件数量
+        existing_files = [f for f in os.listdir(save_folder) if f.startswith(file_prefix) and f.endswith(file_extension)]
+        next_number = len(existing_files) + 1  # 下一个编号
+
+        # 生成文件名
+        file_name = f"{file_prefix}_{next_number}{file_extension}"
+        save_path = os.path.join(save_folder, file_name)
+
+        # 保存图像
+        plt.savefig(save_path)
+        print(f"图像已保存至: {save_path}")
 
     
-    def del_all_hyperedges(self):
-        """
-        删除所有超边
-        """
-        self.hyperedges = []
-
-    def display_hyperedges(self):
-        """
-        打印所有超边
-        """
-        for i, edge in enumerate(self.hyperedges):
-            print(f"Hyperedge {i + 1}: {edge}")
-                    
-class Group:#小组交互模型(暂定)
-    def __init__(self):
-        self.time_step = 10#鲍曼模型时间步
-        # self.activity = random.uniform(0, 1, size = len(self.hyperedges))# 获取组内活跃性
-    def solve(self, hyperedges, opinions, activitise):
-        print("🍌",hyperedges)
-        self.hyperedges = hyperedges  # 用于存储超边，每个超边是一个集合
-        self.activities = [activitise[i] for i in self.hyperedges]# 获取活跃性
-        self.opinions = np.zeros((len(self.hyperedges), self.time_step))
-        self.opinions[:, 0] = [opinions[i] for i in self.hyperedges]
-        print(self.opinions[:, 0],"🍎",self.activities)
-        # 组内意见交换
-        # 1.10循环嵌1时间步龙格库塔四阶
-        for tick in range(1, self.time_step):# 副循环
-            if tick > 1:# 测试
-                break
-            # 遍历所有智能体
-            #matrix_A      j
-            #    [  ][  ][  ][  ][i影响j]
-            #    [  ][  ][  ][  ][  ]
-            # i  [  ][  ][  ][  ][  ]
-            #(主)[  ][  ][  ][  ][  ]
-            #    [  ][  ][  ][  ][  ]
-            # 初始化活动度
-            self.matrix_A = np.zeros((len(self.hyperedges), len(self.hyperedges)))
-            for item in self.hyperedges:
-                print(f"当前节点{item}")
-                if random.uniform(0, 1) <= self.activities[list(self.hyperedges).index(item)]:
-                    print(f"组内当前节点{item}活跃")
-                    #连接节点
-                    for agent in self.hyperedges:
-                        print(agent)
-                        if agent != item:
-                            self.matrix_A[list(self.hyperedges).index(item), list(self.hyperedges).index(agent)] = 1
-                        if random.uniform(0, 1) <= r:# 引起反驳
-                            print("占位符")
-                    print(self.matrix_A)
-                    time.sleep(2)
-        # 2.10时间步龙格库塔四阶
-
-
-def activity_get(size):# 待完善
-    """
-    获取节点的活动性
-    """
-    # 生成活动性 a_i，分布满足 a^(-gamma)
-    low = 0.01    # 下界
-    high = 1.0    # 上界
-
-    # 生成符合幂律分布的随机数
-    random_numbers = (np.random.uniform(low, high, size) ** (-1/(gamma - 1)))
-    a_values = 0.01 + (random_numbers - min(random_numbers)) * (1 - 0.01) / (max(random_numbers) - min(random_numbers))
-    return a_values
-
-def homophily_get(opinions, node_index):# 计算同质性
-    """
-    计算给定节点与其他节点之间的同质性.
-    
-    :param opinions: 一个数组,表示所有节点的意见(x_i)
-    :param beta: 指数参数（β）
-    :param node_index: 指定的节点索引
-    :return: 同质性数组 p_ij
-    """
-    print("传入的意见",opinions)
-    probabilities = np.zeros(len(opinions))  # 初始化同质性数组
-    
-    # 计算分母
-    denominator = 0
-    for j in range(len(opinions)):
-        if node_index != j:
-            denominator += abs(opinions[node_index] - opinions[j]) ** -beta
-    
-    # 计算每个节点的同质性
-    for j in range(len(opinions)):
-        if node_index != j:
-            numerator = abs(opinions[node_index] - opinions[j]) ** -beta
-            probabilities[j] = numerator / (denominator + 1e-10)  # 避免分母为0
-    
-    return probabilities
 
 if __name__ == '__main__':
-    hypergraph = Hypergraph()# 实例化
-    Group_solve = Group()# 实例化
-    opinions = np.zeros((num_individuals, time_step))
-    # 初始化0时刻意见
-    opinions[:, 0] = np.random.uniform(-1, 1, size=num_individuals)
-    print(F"初始意见{opinions[:, 0]}")
-
-
-
-    for tick in range(1, time_step):
-
-        if tick > 1:# 测试
-            break
-        # 清空超边
-        hypergraph.del_all_hyperedges()
-        # 激活节点
-        print(f"当前tick{tick}")
-        for item in range(num_individuals):
-            print(f"当前节点{item}")
-            a_list = activity_get(num_individuals)
-            if random.uniform(0, 1) <= a_list[item]:# a待替换
-                #激活当前节点，当前节点选择节点进行连接(根据同质性)
-                print(f"当前节点{item}活跃")
-                #获取同质性
-                homogeneity = homophily_get(opinions[:, tick - 1], item)
-                #根据同质性选择连接的节点(1.直接选择同质性最高的m个节点进行连接。2.依据同质性随机选择m个节点进行连接)
-                #1.
-                # m_agents = np.argsort(homogeneity)[-m:].tolist()# 索引
-                # m_values = homogeneity[m_agents]# 值
-                # print(f"准备连接的节点{m_agents}")
-                # #尝试连接这m个节点
-                # selected_agents = []
-                # for value in m_agents:
-                #     if random.uniform(0, 1) <= homogeneity[value]:
-                #         selected_agents.append(value)
-                # print(f"尝试连接的节点：{m_agents}，同质性{m_values}，连接成功的节点：{selected_agents}")
-                #2.
-                m_agents = []
-                m_values = []
-                for i in range(m):# 重复选择直至m
-                    while 1:
-                        rand_flo = random.uniform(0, 1)
-                        rand_int = random.randint(0, num_individuals-1)
-                        if rand_flo <= homogeneity[rand_int]:
-                            m_agents.append(int(rand_int))
-                            m_values.append(homogeneity[int(rand_int)])
-                            break
-                print(f"准备连接的节点{m_agents}")
-                #尝试连接这m个节点
-                selected_agents = []
-                for value in m_agents:
-                    if random.uniform(0, 1) <= homogeneity[value]:
-                        selected_agents.append(value)
-                print(f"尝试连接的节点：{m_agents}，同质性{m_values}，连接成功的节点：{set(selected_agents)}")
-                # 将节点用超边连接
-                if selected_agents != []:
-                    temp = list(set(selected_agents))
-                    print(f"temp{temp},item{item}")
-                    temp.append(item)
-                    hypergraph.add_hyperedge(temp)
-                print(f"selected_agents3:{selected_agents},temp:{temp},item:{item}")
-        # 打印超边
-        print("打印")
-        hypergraph.display_hyperedges()
-        # 意见传播
-        print("占位符")
-        for item in hypergraph.hyperedges:
-            #使用鲍曼模型（计算组内活动性）
-            Group_solve.solve(item, opinions[:, 0], a_list)
-
-            #print(item)
-        
+    model = model()
+    func = func(model)
+    tech = tech()
+    # 定义矩阵存放数据
+    lengh = 1
     
     
-    # test = activity_get()
-    # print(f"{test}")
-    # print(f"最小值{min(test)}，最大值{max(test)}")
-                
 
-        
-                
+    # 配置参数
+    # 中立0.05, 2
+    # 激进化3, 0
+    # 极化3, 3
+    config = {
+        "N": 100,  # 代理数量
+        "T": 1000,  # 时间步长
+        "dt": 0.01,  # 时间步长
+        "alpha": 0,  # 意见动态方程中的参数
+        "beta": 0.5,  # 控制代理人选择互动对象的概率
+        "K": 0,  # 意见动态方程中的参数
+        "gamma": 2.1,  # 活动值分布的幂律指数
+        "epsilon": 0.01,  # 活动值的最小值
+        "m": 10,  # 每个活跃代理的连接数
+        "r": 0.5,  # 互动的互惠性参数
+    }
 
-                
+    func.heatmap(lengh, config)# 绘制热力图
+
