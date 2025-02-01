@@ -5,11 +5,10 @@ import xgi
 
 class tech:
     def __init__(self):
-        """
-        使用带旋转的 Bron-Kerbosch 算法查找网络中的所有极大团。
-        """
         self.adj_matrix = None
         self.cliques = []
+    
+    
 
     def bron_kerbosch_pivot(self, adj_matrix):
         """
@@ -87,7 +86,106 @@ class tech:
         
         return self._neighbor_cache[node]
     
+class MaximalCliqueFinder:
+    def __init__(self, adj_matrix):
+        """
+        初始化极大团查找器
+        :param adj_matrix: 邻接矩阵（二维列表）
+        """
+        self.adj = adj_matrix
+        self.n = len(adj_matrix)
+        self.cliques = []  # 存储所有极大团
+
+    def _get_neighbors(self, v):
+        """ 获取顶点v的邻居集合 """
+        return set(i for i in range(self.n) if self.adj[v][i] == 1)
+
+    def find_cliques(self):
+        """ 主接口：查找并返回所有极大团 """
+        self.cliques = []  # 重置结果
+        self._bronkkerbosch(set(), set(range(self.n)), set())
+        # 过滤掉单节点团（根据需求可调整）
+        self.cliques = [c for c in self.cliques if len(c) >= 2]
+        return self.cliques
+
+    def _bronkkerbosch(self, R, P, X):
+        """ 修正后的Bron-Kerbosch算法实现 """
+        if not P and not X:
+            self.cliques.append(sorted(R))
+            return
+        
+        # 遍历P的副本以避免修改原始集合
+        for v in list(P):
+            neighbors_v = self._get_neighbors(v)
+            # 仅当v与R中所有顶点相连时才继续（确保R始终是团）
+            if all(self.adj[v][u] == 1 for u in R):
+                # 生成新的候选集合并递归
+                P_new = P & neighbors_v
+                X_new = X & neighbors_v
+                self._bronkkerbosch(R | {v}, P_new, X_new)
+                # 将v从P移到X
+                P.remove(v)
+                X.add(v)
     
-    
+class GraphAnalyzer:
+    def __init__(self, adj_matrix, directed=False):
+        """
+        初始化图分析器
+        :param adj_matrix: 邻接矩阵（二维列表）
+        :param directed: 是否为有向图（默认为无向图）
+        """
+        self.adj_matrix = adj_matrix
+        self.directed = directed
+        self.n = len(adj_matrix)
+        self.cliques = []  # 存储所有极大团
+
+    def directed_to_undirected(self):
+        """
+        将有向图的邻接矩阵转换为无向图的邻接矩阵
+        :return: 无向图的邻接矩阵（二维列表）
+        """
+        undirected_adj_matrix = [[0] * self.n for _ in range(self.n)]
+        for i in range(self.n):
+            for j in range(self.n):
+                if self.adj_matrix[i][j] == 1 or self.adj_matrix[j][i] == 1:
+                    undirected_adj_matrix[i][j] = 1
+                    undirected_adj_matrix[j][i] = 1
+        return undirected_adj_matrix
+
+    def _get_neighbors(self, v, adj_matrix):
+        """ 获取顶点v的邻居集合 """
+        return set(i for i in range(self.n) if adj_matrix[v][i] == 1)
+
+    def find_maximal_cliques(self):
+        """ 查找并返回所有极大团 """
+        # 如果是有向图，先转换为无向图
+        if self.directed:
+            adj_matrix = self.directed_to_undirected()
+        else:
+            adj_matrix = self.adj_matrix
+
+        # 重置结果
+        self.cliques = []
+        self._bronkkerbosch(set(), set(range(self.n)), set(), adj_matrix)
+        return self.cliques
+
+    def _bronkkerbosch(self, R, P, X, adj_matrix):
+        """ Bron-Kerbosch算法实现 """
+        if not P and not X:
+            self.cliques.append(sorted(R))
+            return
+
+        # 选择轴顶点（P ∪ X中度数最大的顶点）
+        pivot = max(P.union(X), key=lambda v: len(self._get_neighbors(v, adj_matrix)))
+        # 遍历P中不属于轴顶点邻居的顶点
+        for v in list(P - self._get_neighbors(pivot, adj_matrix)):
+            neighbors_v = self._get_neighbors(v, adj_matrix)
+            # 递归探索包含v的情况
+            self._bronkkerbosch(R | {v}, P & neighbors_v, X & neighbors_v, adj_matrix)
+            # 回溯：将v从P移到X
+            P.remove(v)
+            X.add(v)
+
+
 if __name__ == '__main__':
     pass

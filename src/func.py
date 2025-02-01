@@ -33,6 +33,11 @@ class func:
         plt.colorbar()  # 添加颜色条
         plt.show()
         # return matrix
+    
+    def opinions_draw(self, config):
+        self.model.data_in(**config)
+        self.model.simulate_opinion_dynamics()
+        self.model.draw()
 
     # def draw_simplex(self, H):
     #     H.add_edges_from(simplex.simplexs)

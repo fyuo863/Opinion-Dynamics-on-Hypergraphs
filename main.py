@@ -1,4 +1,4 @@
-import cupy as cp
+# import cupy as cp
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -6,6 +6,8 @@ import time
 import networkx as nx
 import os
 from src.module import tech
+from src.module import MaximalCliqueFinder
+from src.module import GraphAnalyzer
 from src.func import func
 import xgi
 
@@ -63,12 +65,20 @@ class model():
                 for node in neighbors:
                     if np.random.rand() < self.r:  # 以概率 r 设置反向关系
                         self.A[node][i] = 1
-        # # 网络显示
-        cliques = tech.bron_kerbosch_pivot(self.A)
-        print(cliques)
+        # 网络显示
+        # cliques = tech.bron_kerbosch_pivot(self.A)
+        # print(cliques)
+        # finder = MaximalCliqueFinder(self.A)
+        # maximal_cliques = finder.find_cliques()
+        
+
+        analyzer = GraphAnalyzer(self.A, directed=True)
+        maximal_cliques = analyzer.find_maximal_cliques()
+        print(self.A)
+        print(maximal_cliques)
         self.network_print()
         
-        self.simplex_print(cliques)
+        self.simplex_print(maximal_cliques)
 
     def network_print(self):
         # 创建图对象
@@ -178,7 +188,7 @@ if __name__ == '__main__':
     # 激进化3, 0
     # 极化3, 3
     config = {
-        "N": 100,  # 代理数量
+        "N": 1000,  # 代理数量
         "T": 1000,  # 时间步长
         "dt": 0.01,  # 时间步长
         "alpha": 0,  # 意见动态方程中的参数
@@ -190,5 +200,6 @@ if __name__ == '__main__':
         "r": 0.5,  # 互动的互惠性参数
     }
 
-    func.heatmap(lengh, config)# 绘制热力图
+    func.opinions_draw(config)# 绘制 opinion 图
+    # func.heatmap(lengh, config)# 绘制热力图
 
