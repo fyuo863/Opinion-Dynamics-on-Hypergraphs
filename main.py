@@ -67,13 +67,16 @@ class model():
         # maximal_cliques = finder.find_cliques()
         
 
-        #analyzer = GraphAnalyzer(self.A, directed=True)
-        #maximal_cliques = analyzer.find_maximal_cliques()
+        analyzer = GraphAnalyzer(self.A, directed=True)
+        maximal_cliques = analyzer.find_maximal_cliques()
         #print(self.A)
-        #print(maximal_cliques)
+        print(maximal_cliques,"🍎")
+        for item in range(self.N):
+            print(tech.find_simplex_with_node(maximal_cliques, item))
+        
         #func.network_print(self.A)
         
-        #func.simplex_print(maximal_cliques)
+        func.simplex_print(maximal_cliques)
 
     def opinion_dynamics(self, x):# 意见动态微分方程
         return -x + self.K * np.sum(self.A * np.tanh(self.alpha * x), axis=1)
@@ -98,24 +101,6 @@ class model():
             #print(opinions_temp)
             self.opinions[tick] = self.opinions[tick - 1] + opinions_temp  # 记录当前时间步的意见
             
-
-    # def save(self):
-    #     global save_folder
-    #     # 保存图像
-    #     file_prefix = "Fig"  # 文件名前缀
-    #     file_extension = ".png"  # 文件扩展名
-    #     # 获取文件夹中已存在的文件数量
-    #     existing_files = [f for f in os.listdir(save_folder) if f.startswith(file_prefix) and f.endswith(file_extension)]
-    #     next_number = len(existing_files) + 1  # 下一个编号
-
-    #     # 生成文件名
-    #     file_name = f"{file_prefix}_{next_number}{file_extension}"
-    #     save_path = os.path.join(save_folder, file_name)
-
-    #     # 保存图像
-    #     plt.savefig(save_path)
-    #     print(f"图像已保存至: {save_path}")
-
     
 
 if __name__ == '__main__':

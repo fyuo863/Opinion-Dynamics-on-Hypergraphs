@@ -91,10 +91,10 @@ class func:
         node_col, _, edge_col = collections
 
         # 为节点度数的颜色映射添加颜色条，并标注为"Node degree"
-        plt.colorbar(node_col, label="Node degree")
+        plt.colorbar(node_col, label="节点度数")
 
         # 为超边大小的颜色映射添加颜色条，并标注为"Edge size"
-        plt.colorbar(edge_col, label="Edge size")
+        plt.colorbar(edge_col, label="超边纬度")
 
         # 显示绘制的图形
         plt.show()
