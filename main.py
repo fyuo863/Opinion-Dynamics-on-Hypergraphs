@@ -13,10 +13,6 @@ import xgi
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei']  # 设置为黑体字体，SimHei 是常见的中文字体
 plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
-# 图片保存位置
-save_folder = "/plots"
-if not os.path.exists(save_folder):
-    os.makedirs(save_folder)  # 如果文件夹不存在，则创建
 
 class model():
     def __init__(self):
@@ -71,55 +67,13 @@ class model():
         # maximal_cliques = finder.find_cliques()
         
 
-        analyzer = GraphAnalyzer(self.A, directed=True)
-        maximal_cliques = analyzer.find_maximal_cliques()
-        print(self.A)
-        print(maximal_cliques)
-        func.network_print(self.A)
+        #analyzer = GraphAnalyzer(self.A, directed=True)
+        #maximal_cliques = analyzer.find_maximal_cliques()
+        #print(self.A)
+        #print(maximal_cliques)
+        #func.network_print(self.A)
         
-        func.simplex_print(maximal_cliques)
-
-    # def network_print(self):
-    #     # 创建图对象
-    #     G = nx.from_numpy_array(self.A)
-    #     # 绘制网络图
-    #     plt.figure(figsize=(6, 6))
-    #     pos = nx.spring_layout(G)  # 布局算法
-    #     nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=5, font_size=8)
-    #     # 显示图形
-    #     plt.show()
-
-    # def simplex_print(self, cliques):
-    #     H = xgi.Hypergraph()
-    #     H.add_edges_from(cliques)
-    #     # 使用 barycenter_spring_layout 布局算法计算节点位置，布局基于春力模型，seed用于固定布局结果
-    #     pos = xgi.barycenter_spring_layout(H, seed=1)
-
-    #     # 创建一个6x2.5英寸的图形和坐标轴
-    #     fig, ax = plt.subplots(figsize=(6, 2.5))
-
-    #     # 绘制超图H
-    #     ax, collections = xgi.draw(
-    #         H,  # 超图H
-    #         pos=pos,  # 节点的布局位置
-    #         node_fc=H.nodes.degree,  # 节点的颜色映射：节点度数（连接的超边数）
-    #         edge_fc=H.edges.size,  # 边的颜色映射：超边大小（连接的节点数）
-    #         edge_fc_cmap="viridis",  # 边的颜色映射使用viridis配色方案
-    #         node_fc_cmap="mako_r",  # 节点的颜色映射使用反转的Mako配色方案
-    #     )
-
-    #     # 从collections中提取节点颜色集合、边颜色集合（中间部分忽略）
-    #     node_col, _, edge_col = collections
-
-    #     # 为节点度数的颜色映射添加颜色条，并标注为"Node degree"
-    #     plt.colorbar(node_col, label="Node degree")
-
-    #     # 为超边大小的颜色映射添加颜色条，并标注为"Edge size"
-    #     plt.colorbar(edge_col, label="Edge size")
-
-    #     # 显示绘制的图形
-    #     plt.show()
-
+        #func.simplex_print(maximal_cliques)
 
     def opinion_dynamics(self, x):# 意见动态微分方程
         return -x + self.K * np.sum(self.A * np.tanh(self.alpha * x), axis=1)
@@ -145,31 +99,22 @@ class model():
             self.opinions[tick] = self.opinions[tick - 1] + opinions_temp  # 记录当前时间步的意见
             
 
-    def draw(self):
-            plt.figure(figsize=(10, 6))
-            for i in range(self.N):
-                plt.plot(range(self.T), self.opinions[:, i], alpha=0.5)  # 绘制每个代理的意见随时间变化
-            plt.xlabel('时间')
-            plt.ylabel('意见')
-            plt.title(f'K={self.K},alpha={self.alpha},beta={self.beta}')
-            plt.show()
-    
-    def save(self):
-        global save_folder
-        # 保存图像
-        file_prefix = "Fig"  # 文件名前缀
-        file_extension = ".png"  # 文件扩展名
-        # 获取文件夹中已存在的文件数量
-        existing_files = [f for f in os.listdir(save_folder) if f.startswith(file_prefix) and f.endswith(file_extension)]
-        next_number = len(existing_files) + 1  # 下一个编号
+    # def save(self):
+    #     global save_folder
+    #     # 保存图像
+    #     file_prefix = "Fig"  # 文件名前缀
+    #     file_extension = ".png"  # 文件扩展名
+    #     # 获取文件夹中已存在的文件数量
+    #     existing_files = [f for f in os.listdir(save_folder) if f.startswith(file_prefix) and f.endswith(file_extension)]
+    #     next_number = len(existing_files) + 1  # 下一个编号
 
-        # 生成文件名
-        file_name = f"{file_prefix}_{next_number}{file_extension}"
-        save_path = os.path.join(save_folder, file_name)
+    #     # 生成文件名
+    #     file_name = f"{file_prefix}_{next_number}{file_extension}"
+    #     save_path = os.path.join(save_folder, file_name)
 
-        # 保存图像
-        plt.savefig(save_path)
-        print(f"图像已保存至: {save_path}")
+    #     # 保存图像
+    #     plt.savefig(save_path)
+    #     print(f"图像已保存至: {save_path}")
 
     
 
@@ -187,12 +132,12 @@ if __name__ == '__main__':
     # 激进化3, 0
     # 极化3, 3
     config = {
-        "N": 1000,  # 代理数量
+        "N": 100,  # 代理数量
         "T": 1000,  # 时间步长
         "dt": 0.01,  # 时间步长
-        "alpha": 0,  # 意见动态方程中的参数
-        "beta": 0.5,  # 控制代理人选择互动对象的概率
-        "K": 0,  # 意见动态方程中的参数
+        "alpha": 3,  # 意见动态方程中的参数
+        "beta": 0,  # 控制代理人选择互动对象的概率
+        "K": 3,  # 意见动态方程中的参数
         "gamma": 2.1,  # 活动值分布的幂律指数
         "epsilon": 0.01,  # 活动值的最小值
         "m": 10,  # 每个活跃代理的连接数
