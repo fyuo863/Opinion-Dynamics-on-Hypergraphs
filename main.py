@@ -121,7 +121,7 @@ if __name__ == '__main__':
         "T": 1000,  # 时间步长
         "dt": 0.01,  # 时间步长
         "alpha": 3,  # 意见动态方程中的参数
-        "beta": 0,  # 控制代理人选择互动对象的概率
+        "beta": 3,  # 控制代理人选择互动对象的概率
         "K": 3,  # 意见动态方程中的参数
         "gamma": 2.1,  # 活动值分布的幂律指数
         "epsilon": 0.01,  # 活动值的最小值
@@ -130,5 +130,14 @@ if __name__ == '__main__':
     }
 
     func.opinions_draw(config)# 绘制 opinion 图
+
+    # config["alpha"], config["beta"] = 3, 0
+
+    # func.opinions_draw(config)# 绘制 opinion 图
+
+    # config["alpha"], config["beta"] = 3, 3
+
+    # func.opinions_draw(config)# 绘制 opinion 图
+
     # func.heatmap(lengh, config)# 绘制热力图
 
