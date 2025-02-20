@@ -51,7 +51,20 @@ class GraphAnalyzer:
         """ 获取顶点v的邻居集合 """
         return set(i for i in range(self.n) if adj_matrix[v][i] == 1)
 
-    def find_maximal_cliques(self):
+    def find_maximal_cliques(self, shwo=True):
+        """ 查找并返回所有极大团 """
+        if shwo:
+            self.show = 0
+        else:
+            self.show = 1
+        # 如果是有向图，先转换为无向图
+        if self.directed:
+            adj_matrix = self.directed_to_undirected()
+        else:
+            adj_matrix = self.adj_matrix
+
+        # 重置结果
+        self.cliques = []
         """ 查找并返回所有极大团 """
         # 如果是有向图，先转换为无向图
         if self.directed:
@@ -67,7 +80,8 @@ class GraphAnalyzer:
     def _bronkkerbosch(self, R, P, X, adj_matrix):
         """ Bron-Kerbosch算法实现 """
         if not P and not X:
-            self.cliques.append(sorted(R))
+            if len(R) > self.show:  # 修改处：只添加长度大于1的团
+                self.cliques.append(sorted(R))
             return
 
         # 选择轴顶点（P ∪ X中度数最大的顶点）

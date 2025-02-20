@@ -68,24 +68,63 @@ class model():
         
 
         analyzer = GraphAnalyzer(self.A, directed=True)
-        maximal_cliques = analyzer.find_maximal_cliques()
+        self.maximal_cliques = analyzer.find_maximal_cliques(shwo=False)#显示孤立节点
         #print(self.A)
-        print(maximal_cliques,"🍎")
-        for item in range(self.N):
-            print(tech.find_simplex_with_node(maximal_cliques, item))
+        # print(self.maximal_cliques,"🍎")
+        # print("------------------")
+        # # for item in range(self.N):
+        # #     #print(len(tech.find_simplex_with_node(self.maximal_cliques, item)))
+        # #     print(tech.find_simplex_with_node(self.maximal_cliques, item))
         
-        #func.network_print(self.A)
+        # #func.network_print(self.A)
         
-        func.simplex_print(maximal_cliques)
+        # func.simplex_print(self.maximal_cliques)
 
-    def opinion_dynamics(self, x):# 意见动态微分方程
-        return -x + self.K * np.sum(self.A * np.tanh(self.alpha * x), axis=1)
+    def opinion_dynamics1(self, x):# 意见动态微分方程
+        temp = -x
+        for item in range(self.N):
+            
+            simplex = tech.find_simplex_with_node(self.maximal_cliques, item)
+            if len(simplex) > 0:
+                # print("------")
+                # print("🍌", item, temp[item])
+                
+                # print(simplex)
+                # print("------")
+                
+                for j in simplex:# 用指定节点的意见加上超边中其他所有节点的意见
+                    # print("与item相连的边",j)
+                    sum_rest = 0
+                    for k in j:
+                        # print("j=",j)
+                        if k != item:
+                            # print("边中包含的节点",k)
+                            sum_rest += x[k]
+                            # print("节点的意见", x[item], x[k], sum_rest)
+
+                    temp[item] += self.K * 2/len(j) * np.tanh(self.alpha * (sum_rest))
+                    # print("temp计算完🍍", temp[item])
+        return temp
+    
+    def opinion_dynamics234(self, x):# 意见动态微分方程
+        temp = -x
+        for item in range(self.N):
+            
+            simplex = tech.find_simplex_with_node(self.maximal_cliques, item)
+            if len(simplex) > 0:
+                for j in simplex:# 用指定节点的意见加上超边中其他所有节点的意见
+                    sum_rest = 0
+                    for k in j:
+                        if k != item:
+                            sum_rest += x[k]
+                    temp[item] += self.K * 2/len(j) * np.tanh(self.alpha * (sum_rest))
+        return temp
 
     def runge_kutta(self, opinions):
-        k1 = self.dt * self.opinion_dynamics(opinions)  # 计算 k1
-        k2 = self.dt * self.opinion_dynamics(opinions + 0.5 * k1)  # 计算 k2
-        k3 = self.dt * self.opinion_dynamics(opinions + 0.5 * k2)  # 计算 k3
-        k4 = self.dt * self.opinion_dynamics(opinions + k3)  # 计算 k4
+        k1 = self.dt * self.opinion_dynamics1(opinions)  # 计算 k1
+        k2 = self.dt * self.opinion_dynamics234(opinions + 0.5 * k1)  # 计算 k2
+        k3 = self.dt * self.opinion_dynamics234(opinions + 0.5 * k2)  # 计算 k3
+        k4 = self.dt * self.opinion_dynamics234(opinions + k3)  # 计算 k4
         return (k1 + 2 * k2 + 2 * k3 + k4) / 6  # 更新意见值
 
 
@@ -117,11 +156,11 @@ if __name__ == '__main__':
     # 激进化3, 0
     # 极化3, 3
     config = {
-        "N": 100,  # 代理数量
+        "N": 1000,  # 代理数量
         "T": 1000,  # 时间步长
         "dt": 0.01,  # 时间步长
-        "alpha": 3,  # 意见动态方程中的参数
-        "beta": 3,  # 控制代理人选择互动对象的概率
+        "alpha": 0.05,  # 意见动态方程中的参数
+        "beta": 2,  # 控制代理人选择互动对象的概率
         "K": 3,  # 意见动态方程中的参数
         "gamma": 2.1,  # 活动值分布的幂律指数
         "epsilon": 0.01,  # 活动值的最小值
@@ -129,15 +168,15 @@ if __name__ == '__main__':
         "r": 0.5,  # 互动的互惠性参数
     }
 
+    #func.opinions_draw(config)# 绘制 opinion 图
+
+    config["alpha"], config["beta"] = 3, 0
+
     func.opinions_draw(config)# 绘制 opinion 图
 
-    # config["alpha"], config["beta"] = 3, 0
+    config["alpha"], config["beta"] = 3, 3
 
-    # func.opinions_draw(config)# 绘制 opinion 图
+    func.opinions_draw(config)# 绘制 opinion 图
 
-    # config["alpha"], config["beta"] = 3, 3
-
-    # func.opinions_draw(config)# 绘制 opinion 图
-
-    # func.heatmap(lengh, config)# 绘制热力图
+    func.heatmap(lengh, config)# 绘制热力图
 
