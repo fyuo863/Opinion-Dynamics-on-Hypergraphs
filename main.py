@@ -20,6 +20,7 @@ class model():
     
     def data_in(self, **kwargs):
         # 参数
+        self.tips = kwargs.get("tips")
         self.N = kwargs.get("N")
         self.T = kwargs.get("T")
         self.dt = kwargs.get("dt")
@@ -38,28 +39,74 @@ class model():
         temp = np.random.uniform(0, 1, self.N)
         return (self.epsilon ** (1 - self.gamma) + temp * (1 - self.epsilon ** (1 - self.gamma))) ** (1 / (1 - self.gamma))
 
-    def homogeneity_get(self, opinions, node):
-        p_matrix = np.zeros((self.N, self.N))  # 概率矩阵，表示代理人之间互动的概率
+    # def homogeneity_get(self, opinions):
+    #     p_matrix = np.zeros((self.N, self.N))  # 概率矩阵，表示代理人之间互动的概率
 
-        for i in range(self.N):
-            dif = np.abs(opinions[i] - opinions)  # 计算代理人 i 与其他代理人之间的意见距离
-            prob = (dif + 1e-10) ** (-self.beta)  # 根据意见距离计算互动概率
-            prob[i] = 0  # 自己与自己不互动
-            p_matrix[i, :] = prob / np.sum(prob)  # 归一化概率
+    #     for i in range(self.N):
+    #         dif = np.abs(opinions[i] - opinions)  # 计算代理人 i 与其他代理人之间的意见距离
+    #         prob = (dif + 1e-10) ** (-self.beta)  # 根据意见距离计算互动概率
+    #         prob[i] = 0  # 自己与自己不互动
+    #         p_matrix[i, :] = prob / np.sum(prob)  # 归一化概率
+    #     return p_matrix
+
+    def homogeneity_get(self, opinions):
+        dif = np.abs(opinions[:, np.newaxis] - opinions)
+        prob_matrix = (dif + 1e-10) ** (-self.beta)
+        np.fill_diagonal(prob_matrix, 0)
+        p_matrix = prob_matrix / prob_matrix.sum(axis=1, keepdims=True)
         return p_matrix
     
+    def custom_operation(self, tick, i):# 自定义操作函数
+        # 激活
+        homogeneities = self.homogeneity_get(self.opinions[tick - 1])# 获取同质性
+        neighbors = np.random.choice(self.N, size=self.m, replace=False, p=homogeneities[i])  # 选择m个节点连接
+        # 连接
+        self.A[i, neighbors] = 1
+        # 互惠
+        rand_arr1 = np.random.rand(self.m)
+        reciprocal_nodes = neighbors[rand_arr1 < self.r]
+        self.A[reciprocal_nodes, i] = 1
+
+        
+
     def network_update(self, tick):
         for i in range(self.N):# 遍历所有节点，确定是否激活
             if np.random.rand() <= self.activities[i]:
                 # 激活
-                homogeneities = self.homogeneity_get(self.opinions[tick - 1], i)# 获取同质性
+                homogeneities = self.homogeneity_get(self.opinions[tick - 1])# 获取同质性
                 neighbors = np.random.choice(self.N, size=self.m, replace=False, p=homogeneities[i])  # 选择m个节点连接
                 # 连接
                 self.A[i, neighbors] = 1
                 # 互惠
+                rand_arr1 = np.random.rand(self.m)
+                reciprocal_nodes = neighbors[rand_arr1 < self.r]
+                self.A[reciprocal_nodes, i] = 1
+
+
                 for node in neighbors:
                     if np.random.rand() < self.r:  # 以概率 r 设置反向关系
                         self.A[node][i] = 1
+
+
+        # 优化
+
+
+        # rand_arr2 = np.random.rand(self.N)
+        # # 比较 array1 的元素是否大于 array2 的对应元素
+        # comparison = rand_arr2 <= self.activities
+        # indices = np.where(comparison)[0]
+        # # 使用 np.vectorize 来向量化 temp 函数
+        # vectorized_temp = np.vectorize(self.custom_operation)
+        # # 执行向量化的 temp 函数
+        # #start_time = time.perf_counter()
+        # vectorized_temp(tick, indices)
+        # #end_time = time.perf_counter()
+        # #print(f"函数执行时间: {end_time - start_time:.6f} 秒")
+
+        
+
+
+
         # 网络显示
         # cliques = tech.bron_kerbosch_pivot(self.A)
         # print(cliques)
@@ -102,9 +149,10 @@ class model():
                             sum_rest += x[k]
                             # print("节点的意见", x[item], x[k], sum_rest)
 
-                    temp[item] += self.K * 2/len(j) * np.tanh(self.alpha * (sum_rest))
+                    temp[item] += self.K * 2 * len(j) * np.tanh(self.alpha * (sum_rest))
                     # print("temp计算完🍍", temp[item])
         return temp
+        # return -x + self.K * np.sum(self.A * np.tanh(self.alpha * x), axis=1)
     
     def opinion_dynamics234(self, x):# 意见动态微分方程
         temp = -x
@@ -117,8 +165,10 @@ class model():
                     for k in j:
                         if k != item:
                             sum_rest += x[k]
-                    temp[item] += self.K * 2/len(j) * np.tanh(self.alpha * (sum_rest))
+                    temp[item] += self.K * 2 * len(j) * np.tanh(self.alpha * (sum_rest))
+
         return temp
+        # return -x + self.K * np.sum(self.A * np.tanh(self.alpha * x), axis=1)
 
     def runge_kutta(self, opinions):
         k1 = self.dt * self.opinion_dynamics1(opinions)  # 计算 k1
@@ -135,9 +185,8 @@ class model():
         # 主循环
         for tick in tqdm(range(1, self.T)):
             self.A = np.zeros((self.N, self.N))  # 重置邻接矩阵
-            self.network_update(tick)# 网络连接
+            self.network_update(tick)# 网络连接 
             opinions_temp = self.runge_kutta(self.opinions[tick - 1])# 意见更新
-            #print(opinions_temp)
             self.opinions[tick] = self.opinions[tick - 1] + opinions_temp  # 记录当前时间步的意见
             
     
@@ -156,7 +205,8 @@ if __name__ == '__main__':
     # 激进化3, 0
     # 极化3, 3
     config = {
-        "N": 1000,  # 代理数量
+        "tips": "",
+        "N": 500,  # 代理数量
         "T": 1000,  # 时间步长
         "dt": 0.01,  # 时间步长
         "alpha": 0.05,  # 意见动态方程中的参数
@@ -168,7 +218,7 @@ if __name__ == '__main__':
         "r": 0.5,  # 互动的互惠性参数
     }
 
-    #func.opinions_draw(config)# 绘制 opinion 图
+    func.opinions_draw(config)# 绘制 opinion 图
 
     config["alpha"], config["beta"] = 3, 0
 
@@ -178,5 +228,7 @@ if __name__ == '__main__':
 
     func.opinions_draw(config)# 绘制 opinion 图
 
-    func.heatmap(lengh, config)# 绘制热力图
+    # func.heatmap(lengh, config)# 绘制热力图
+
+    # func.finish_draw()
 

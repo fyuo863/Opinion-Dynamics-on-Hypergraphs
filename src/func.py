@@ -53,9 +53,9 @@ class func:
             plt.plot(range(self.model.T), self.model.opinions[:, i], alpha=0.5)  # 绘制每个代理的意见随时间变化
         plt.xlabel('时间')
         plt.ylabel('意见')
-        plt.title(f'N={self.model.N},K={self.model.K},alpha={self.model.alpha},beta={self.model.beta}')
+        plt.title(f'{self.model.tips}  N={self.model.N},K={self.model.K},alpha={self.model.alpha},beta={self.model.beta}')
         self.save()
-        plt.show()
+        plt.show(block=False)
         
 
     def network_print(self, A):
@@ -99,6 +99,15 @@ class func:
         # 显示绘制的图形
         plt.show()
 
+    # def finish_draw(self):
+    #     # 创建一个新的图形
+    #     plt.figure(num="运行状态")  # 设置窗口标题
+    #     # 在图形中添加文字，并设置文字的大小
+    #     plt.text(0.5, 0.5, "运行完毕", fontsize=24, ha='center', va='center')
+    #     # 移除坐标轴
+    #     plt.axis('off')
+    #     # 显示图形
+    #     plt.show()
 
     def save(self):
         global save_folder
