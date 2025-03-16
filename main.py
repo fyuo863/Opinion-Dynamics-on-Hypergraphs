@@ -1,53 +1,58 @@
-# import cupy as cp
+# 1.初始化节点，为每个节点分配固定的活跃度，并且分配随机意见
+# 2.计算节点之间的同质性
+# 3.网络连接，并保存邻接矩阵
+# 4.使用Bron-Kerbosch算法找出所有极大团，将其存储为单纯形列表
+# 5.观点整合，单纯形内部进行意见交互
+# 6.信息传播，单纯形之间进行意见交互
+import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import time
-import networkx as nx
-import os
-from src.module import tech
-from src.module import GraphAnalyzer
-from src.func import func
 import xgi
+from models.test import HigherOrderOpinionDynamics
+import os
+
+# 图片保存位置
+save_folder = "./plots"
+if not os.path.exists(save_folder):
+    print(f"创建文件夹 '{save_folder}' 。")
+    os.makedirs(save_folder)  # 如果文件夹不存在，则创建
+else:
+    print(f"文件夹 '{save_folder}' 已存在。")
+
+
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei']  # 设置为黑体字体，SimHei 是常见的中文字体
 plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
+
 class model():
     def __init__(self):
         pass
-    
+
     def data_in(self, **kwargs):
-        # 参数
         self.tips = kwargs.get("tips")
-        self.N = kwargs.get("N")
-        self.T = kwargs.get("T")
-        self.dt = kwargs.get("dt")
+        self.N = kwargs.get("N")  # 代理数量
+        self.T = kwargs.get("T")  # 时间步长
         self.alpha = kwargs.get("alpha")
         self.beta = kwargs.get("beta")
-        self.K = kwargs.get("K")
         self.gamma = kwargs.get("gamma")
         self.epsilon = kwargs.get("epsilon")
         self.m = kwargs.get("m")
         self.r = kwargs.get("r")
+        self.dt = kwargs.get("dt")
+        self.gamma_d = kwargs.get("gamma_d")  # γ1, γ2, γ3
 
         self.activities = self.activities_get()
-        self.A = np.zeros((self.N, self.N))
+        self.A = np.zeros((self.N, self.N))  # 邻接矩阵
+        self.S =[]
+        pass
 
     def activities_get(self):
         temp = np.random.uniform(0, 1, self.N)
         return (self.epsilon ** (1 - self.gamma) + temp * (1 - self.epsilon ** (1 - self.gamma))) ** (1 / (1 - self.gamma))
-
-    # def homogeneity_get(self, opinions):
-    #     p_matrix = np.zeros((self.N, self.N))  # 概率矩阵，表示代理人之间互动的概率
-
-    #     for i in range(self.N):
-    #         dif = np.abs(opinions[i] - opinions)  # 计算代理人 i 与其他代理人之间的意见距离
-    #         prob = (dif + 1e-10) ** (-self.beta)  # 根据意见距离计算互动概率
-    #         prob[i] = 0  # 自己与自己不互动
-    #         p_matrix[i, :] = prob / np.sum(prob)  # 归一化概率
-    #     return p_matrix
 
     def homogeneity_get(self, opinions):
         dif = np.abs(opinions[:, np.newaxis] - opinions)
@@ -56,157 +61,206 @@ class model():
         p_matrix = prob_matrix / prob_matrix.sum(axis=1, keepdims=True)
         return p_matrix
     
-    def custom_operation(self, tick, i):# 自定义操作函数
-        # 激活
-        homogeneities = self.homogeneity_get(self.opinions[tick - 1])# 获取同质性
-        neighbors = np.random.choice(self.N, size=self.m, replace=False, p=homogeneities[i])  # 选择m个节点连接
-        # 连接
-        self.A[i, neighbors] = 1
-        # 互惠
-        rand_arr1 = np.random.rand(self.m)
-        reciprocal_nodes = neighbors[rand_arr1 < self.r]
-        self.A[reciprocal_nodes, i] = 1
-
-        
-
     def network_update(self, tick):
-        for i in range(self.N):# 遍历所有节点，确定是否激活
-            if np.random.rand() <= self.activities[i]:
-                # 激活
-                homogeneities = self.homogeneity_get(self.opinions[tick - 1])# 获取同质性
-                neighbors = np.random.choice(self.N, size=self.m, replace=False, p=homogeneities[i])  # 选择m个节点连接
-                # 连接
-                self.A[i, neighbors] = 1
-                # 互惠
-                rand_arr1 = np.random.rand(self.m)
-                reciprocal_nodes = neighbors[rand_arr1 < self.r]
-                self.A[reciprocal_nodes, i] = 1
+        # 计算当前时间步的同质性矩阵 (仅一次)
+        homogeneities = self.homogeneity_get(self.opinions[tick - 1])
+        # print("homogeneities", homogeneities)
 
+        # 向量化激活判断 (一次性生成所有激活节点)
+        activated_mask = np.random.rand(self.N) <= self.activities
+        activated_indices = np.where(activated_mask)[0]
 
-                for node in neighbors:
-                    if np.random.rand() < self.r:  # 以概率 r 设置反向关系
-                        self.A[node][i] = 1
+        # 预分配所有需要的随机数 (激活节点数 * m)
+        total_activated = len(activated_indices)
 
+        # 初始化 self.S 用于存储符合条件的连接
+        self.S = []
 
-        # 优化
+        # if total_activated > 0:
+        #     # 批量生成所有邻居选择
+        #     all_neighbors = np.array([
+        #         np.random.choice(self.N, size=self.m, replace=False, p=homogeneities[i]) 
+        #     ])
 
-
-        # rand_arr2 = np.random.rand(self.N)
-        # # 比较 array1 的元素是否大于 array2 的对应元素
-        # comparison = rand_arr2 <= self.activities
-        # indices = np.where(comparison)[0]
-        # # 使用 np.vectorize 来向量化 temp 函数
-        # vectorized_temp = np.vectorize(self.custom_operation)
-        # # 执行向量化的 temp 函数
-        # #start_time = time.perf_counter()
-        # vectorized_temp(tick, indices)
-        # #end_time = time.perf_counter()
-        # #print(f"函数执行时间: {end_time - start_time:.6f} 秒")
-
-        
-
-
-
-        # 网络显示
-        # cliques = tech.bron_kerbosch_pivot(self.A)
-        # print(cliques)
-        # finder = MaximalCliqueFinder(self.A)
-        # maximal_cliques = finder.find_cliques()
-        
-
-        analyzer = GraphAnalyzer(self.A, directed=True)
-        self.maximal_cliques = analyzer.find_maximal_cliques(shwo=False)#显示孤立节点
-        #print(self.A)
-        # print(self.maximal_cliques,"🍎")
-        # print("------------------")
-        # # for item in range(self.N):
-        # #     #print(len(tech.find_simplex_with_node(self.maximal_cliques, item)))
-        # #     print(tech.find_simplex_with_node(self.maximal_cliques, item))
-        
-        # #func.network_print(self.A)
-        
-        # func.simplex_print(self.maximal_cliques)
-
-    def opinion_dynamics1(self, x):# 意见动态微分方程
-        temp = -x
-        for item in range(self.N):
-            
-            simplex = tech.find_simplex_with_node(self.maximal_cliques, item)
-            if len(simplex) > 0:
-                # print("------")
-                # print("🍌", item, temp[item])
+        #     # 过滤同质性大于 r 的邻居并存入 self.S
+        #     for i, neighbors in zip(activated_indices, all_neighbors):
+        #         # 取出当前节点 i 与其邻居的同质性
+        #         neighbor_homogeneity = homogeneities[i][neighbors]
                 
-                # print(simplex)
-                # print("------")
+        #         # 筛选出同质性大于 r 的邻居
+        #         valid_neighbors = neighbors[neighbor_homogeneity > self.r] # np.random.rand()
                 
-                for j in simplex:# 用指定节点的意见加上超边中其他所有节点的意见
-                    # print("与item相连的边",j)
-                    sum_rest = 0
-                    for k in j:
-                        # print("j=",j)
-                        if k != item:
-                            # print("边中包含的节点",k)
-                            sum_rest += x[k]
-                            # print("节点的意见", x[item], x[k], sum_rest)
+        #         # 如果有符合条件的邻居，则存入 self.S
+        #         if len(valid_neighbors) > 0:
+        #             self.S.append([i] + valid_neighbors.tolist())
 
-                    temp[item] += self.K * 2 * len(j) * np.tanh(self.alpha * (sum_rest))
-                    # print("temp计算完🍍", temp[item])
-        return temp
-        # return -x + self.K * np.sum(self.A * np.tanh(self.alpha * x), axis=1)
+
+
+        if total_activated > 0:
+            # 批量生成所有邻居选择
+            all_neighbors = np.array([
+                np.random.choice(self.N, size=self.m, replace=False, p=homogeneities[i]) 
+                for i in activated_indices
+            ])
+
+            # 存入 self.S
+            for i, neighbors in zip(activated_indices, all_neighbors):
+                self.S.append([i] + neighbors.tolist())
+
+            # # 批量设置连接
+            # rows = np.repeat(activated_indices, self.m)
+            # cols = all_neighbors.flatten()
+            # self.A[rows, cols] = 1
+
+        # # G = nx.from_numpy_array(self.A)
+        # # self.S = [sublist for sublist in list(nx.find_cliques(G)) if len(sublist) > 1]
+
+
+
+        # print("S", self.S)
+        # time.sleep(10)
+        
+        # 创建单纯复形对象
+        # H = xgi.SimplicialComplex()
+        # # 添加单纯形到复形中
+        # print("S", self.S)
+        # H.add_simplices_from(self.S)
+        # # 绘制图形并显示节点标签
+        # xgi.draw(H, with_node_labels=True)
+        # plt.title("Simplicial Complex Visualization")
+        # plt.show()
+
+
     
-    def opinion_dynamics234(self, x):# 意见动态微分方程
+    def opinion_dynamics(self, x):
+        # 意见自衰减
         temp = -x
-        for item in range(self.N):
-            
-            simplex = tech.find_simplex_with_node(self.maximal_cliques, item)
-            if len(simplex) > 0:
-                for j in simplex:# 用指定节点的意见加上超边中其他所有节点的意见
-                    sum_rest = 0
-                    for k in j:
-                        if k != item:
-                            sum_rest += x[k]
-                    temp[item] += self.K * 2 * len(j) * np.tanh(self.alpha * (sum_rest))
-
-        return temp
-        # return -x + self.K * np.sum(self.A * np.tanh(self.alpha * x), axis=1)
+        # 示例邻接矩阵和参数
+        self.gamma_d = [1.0, 0.5, 0.2]  # γ1, γ2, γ3
+        tech = HigherOrderOpinionDynamics(self.S, self.gamma_d, self.N ,max_order=3)
+        # time.sleep(10)
+        # print(x)
+        # print(temp)
+        dx = tech.dx_dt(x, temp, self.alpha)
+        # print("相位变化率 dθ/dt:", dtheta)
+        return dx
 
     def runge_kutta(self, opinions):
-        k1 = self.dt * self.opinion_dynamics1(opinions)  # 计算 k1
-        k2 = self.dt * self.opinion_dynamics234(opinions + 0.5 * k1)  # 计算 k2
-        k3 = self.dt * self.opinion_dynamics234(opinions + 0.5 * k2)  # 计算 k3
-        k4 = self.dt * self.opinion_dynamics234(opinions + k3)  # 计算 k4
+        k1 = self.dt * self.opinion_dynamics(opinions)  # 计算 k1
+        k2 = self.dt * self.opinion_dynamics(opinions + 0.5 * k1)  # 计算 k2
+        k3 = self.dt * self.opinion_dynamics(opinions + 0.5 * k2)  # 计算 k3
+        k4 = self.dt * self.opinion_dynamics(opinions + k3)  # 计算 k4
         return (k1 + 2 * k2 + 2 * k3 + k4) / 6  # 更新意见值
 
-
-    def simulate_opinion_dynamics(self):# 意见动态模型
+    def simulate_opinion_dynamics(self):
         self.x = np.random.uniform(-1, 1, self.N)# 初始化意见，范围为[-1, 1]
         self.opinions = np.zeros((self.T, self.N))  # 存储每个时间步的意见
         self.opinions[0] = self.x  # 初始意见
         # 主循环
         for tick in tqdm(range(1, self.T)):
+            # if tick > 1:
+            #     break
             self.A = np.zeros((self.N, self.N))  # 重置邻接矩阵
+            self.S =[]  # 重置单纯形列表
             self.network_update(tick)# 网络连接 
             opinions_temp = self.runge_kutta(self.opinions[tick - 1])# 意见更新
             self.opinions[tick] = self.opinions[tick - 1] + opinions_temp  # 记录当前时间步的意见
             
-    
+    def opinions_draw(self):
+        self.simulate_opinion_dynamics()
+        #self.draw()
+        plt.figure(figsize=(10, 6))
+        for i in range(self.N):
+            plt.plot(range(self.T), self.opinions[:, i], alpha=0.5, linewidth=0.5)  # 绘制每个代理的意见随时间变化
+        plt.xlabel('时间')
+        plt.ylabel('意见')
+        plt.title(f'{self.tips}  N={self.N},alpha={self.alpha},beta={self.beta},r={self.r},[γ1, γ2, γ3]={self.gamma_d}')
+        self.save()
+        plt.show(block=False)
+
+    def heatmap(self, lengh, n, config, b, min_b, max_b, a, min_a, max_a):
+        """
+        绘制热力图
+        :param lengh: 热力图的精细度
+        :param n: 运行次数
+        :param config: 配置参数
+        :param min_b: K的最小值
+        :param max_b: K的最大值
+        :param min_a: alpha的最小值
+        :param max_a: alpha的最大值
+        """
+        matrix = np.zeros((lengh, lengh))
+        config[a] = min_a
+        config[b] = min_b
+        
+        # 横向扫描
+        for i in range(lengh):
+            print(i)
+            config[a] = 0
+            for j in range(lengh):
+                temp_average = [] 
+                for _ in range(n):  # 多次运行取平均值
+                    self.data_in(**config)
+                    self.simulate_opinion_dynamics()
+                    temp = np.abs(self.opinions[-1])
+                    temp_average.append(np.average(temp))
+                print(temp_average)
+                matrix[i][j] = np.average(temp_average)
+                print(f'{b}:{config[b]},{a}:{config[a]},结果{matrix[i][j]}')
+                config[a] += (max_a - min_a) / (lengh)
+            config[b] += (max_b - min_b) / (lengh)
+        
+        # 绘制热力图
+        plt.imshow(matrix, cmap='gray', vmin=np.min(matrix), vmax=np.max(matrix), origin='lower')
+        plt.colorbar()
+        
+        # 自定义横纵坐标刻度
+        x_ticks = np.linspace(min_b, max_b, lengh)  # K 的范围
+        y_ticks = np.linspace(min_a, max_a, lengh)  # alpha 的范围
+        plt.xticks(np.arange(lengh), labels=np.round(x_ticks, 2))  # 设置 X 轴刻度和标签
+        plt.yticks(np.arange(lengh), labels=np.round(y_ticks, 2))  # 设置 Y 轴刻度和标签
+        
+        # 添加坐标轴标签
+        plt.xlabel('K')
+        plt.ylabel('alpha')
+        plt.title(f"{b}:{min_b}->{max_b},{a}:{min_a}->{max_a},{n}次取平均值")
+        
+        # 保存和显示图像
+        self.save()
+        plt.show(block=False)
+
+    def save(self):
+        global save_folder
+        # 保存图像
+        file_prefix = "Fig"  # 文件名前缀
+        file_extension = ".svg"  # 文件扩展名
+        
+        # 获取文件夹中已存在的文件数量
+        existing_files = [f for f in os.listdir(save_folder) if f.startswith(file_prefix) and f.endswith(file_extension)]
+        
+        # 找到下一个可用的编号
+        next_number = 1
+        while True:
+            file_name = f"{file_prefix}_{next_number}{file_extension}"
+            save_path = os.path.join(save_folder, file_name)
+            if not os.path.exists(save_path):
+                break
+            next_number += 1
+
+        # 保存图像
+        plt.savefig(save_path, format='svg', dpi=100)
+        print(f"图像已保存至: {save_path}")
+
+
 
 if __name__ == '__main__':
     model = model()
-    func = func(model)
-    tech = tech()
-    # 定义矩阵存放数据
-    lengh = 1
-    
-    
+
 
     # 配置参数
-    # 中立0.05, 2
-    # 激进化3, 0
-    # 极化3, 3
     config = {
-        "tips": "",
-        "N": 500,  # 代理数量
+        "tips": "加入高阶交互",
+        "N": 1000,  # 代理数量
         "T": 1000,  # 时间步长
         "dt": 0.01,  # 时间步长
         "alpha": 0.05,  # 意见动态方程中的参数
@@ -215,20 +269,26 @@ if __name__ == '__main__':
         "gamma": 2.1,  # 活动值分布的幂律指数
         "epsilon": 0.01,  # 活动值的最小值
         "m": 10,  # 每个活跃代理的连接数
-        "r": 0.5,  # 互动的互惠性参数
+        "r": 0.001,  # 交互阈值
+        "gamma_d": [1.0, 0.5, 0.2]  # γ1, γ2, γ3
     }
+    # model.data_in(**config)
+    # model.opinions_draw()
 
-    func.opinions_draw(config)# 绘制 opinion 图
+    # config["alpha"], config["beta"] = 3, 0
 
-    config["alpha"], config["beta"] = 3, 0
+    # model.data_in(**config)
+    # model.opinions_draw()
 
-    func.opinions_draw(config)# 绘制 opinion 图
+    # config["alpha"], config["beta"] = 3, 3
 
-    config["alpha"], config["beta"] = 3, 3
+    # model.data_in(**config)
+    # model.opinions_draw()
 
-    func.opinions_draw(config)# 绘制 opinion 图
+    config["r"], config["beta"] = 0, 0.5
+    model.data_in(**config)
+    model.heatmap(10, 5, config, "r", 0, 0.01, "alpha", 0, 1)# 绘制热力图
 
-    # func.heatmap(lengh, config)# 绘制热力图
-
-    # func.finish_draw()
-
+    config["r"], config["beta"] = 0, 0.5
+    model.data_in(**config)
+    model.heatmap(10, 5, config, "r", 0, 0.05, "alpha", 0, 2)
